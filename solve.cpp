@@ -68,11 +68,26 @@ vector<quint> add(vector<quint>& a, const vector<quint>& b){
     return a;
 }
 
-vector<quint> getQuints(const vector<uint32_t>& cooked, const vector<vector<int>>& adj){
+unordered_set<uint32_t> pairs(const vector<uint32_t>& cooked){
+    int n = cooked.size();
+    unordered_set<uint32_t> p;
+    for(int i = 0; i < n; i++){
+        for(int j = i + 1; j < n; j++){
+            if((cooked[i] & cooked[j]) == 0){
+                p.insert(cooked[i] | cooked[j]);
+            }
+        }
+    }
+    return p;
+}
+
+int getQuints(const vector<uint32_t>& cooked, const vector<vector<int>>& adj){
 #pragma omp declare reduction (merge:vector<quint>:omp_out=add(omp_out,omp_in))
     int n = cooked.size();
     vector<quint> result;
-#pragma omp parallel for schedule(dynamic, 1) reduction(merge: result)
+    unordered_set<uint32_t> p = pairs(cooked);
+    int count = 0;
+#pragma omp parallel for schedule(dynamic, 1) reduction(+: count)
     for(int i = 0; i < n; i++){
         uint32_t x1 = cooked[i];
         for(auto j : adj[i]){
@@ -80,20 +95,26 @@ vector<quint> getQuints(const vector<uint32_t>& cooked, const vector<vector<int>
             for(auto k : adj[j]){
                 if((x2 & cooked[k]) != 0) continue;
                 uint32_t x3 = x2 | cooked[k];
-                for(auto l : adj[k]){
-                    if((x3 & cooked[l]) != 0) continue;
-                    uint32_t x4 = x3 | cooked[l];
-                    for(auto m : adj[l]){
-                        if((x4 & cooked[m]) == 0){
-                            quint y{i, j, k, l, m};
-                            result.push_back(y);
-                        }
-                    }
+                x3 = (~x3) & 0b11111111111111111111111111;
+                for(int s = 0; s < 26; s++){
+                    uint32_t q = 1 << s;
+                    q = q ^ x3;
+                    if(popcount(q) == 10 && p.find(q) != p.end()) count++;
                 }
+                //for(auto l : adj[k]){
+                //    if((x3 & cooked[l]) != 0) continue;
+                //    uint32_t x4 = x3 | cooked[l];
+                //    for(auto m : adj[l]){
+                //        if((x4 & cooked[m]) == 0){
+                //            quint y{i, j, k, l, m};
+                //            result.push_back(y);
+                //        }
+                //    }
+                //}
             }
         }
     }
-    return result;
+    return count;
 }
 
 int main(){
@@ -103,10 +124,11 @@ int main(){
     readWords("wordle-nyt-answers-alphabetical.txt", words);
     vector<uint32_t> cooked = cookVector(words);
     sort(cooked.begin(), cooked.end());
+    reverse(cooked.begin(), cooked.end());
     vector<vector<int>> adj = adjList(cooked);
     tp t1 = chrono::high_resolution_clock::now();
-    vector<quint> q = getQuints(cooked, adj);
-    cout << q.size() << endl;
+    int q = getQuints(cooked, adj);
+    cout << q << endl;
     tp t2 = chrono::high_resolution_clock::now();
     chrono::duration<double> d = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
     cout << d.count() << endl;
