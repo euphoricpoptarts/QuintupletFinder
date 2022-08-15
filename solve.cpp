@@ -7,6 +7,7 @@
 #include <omp.h>
 #include <chrono>
 #include <list>
+#include <algorithm>
 
 using namespace std;
 
@@ -101,6 +102,7 @@ int main(){
     readWords("wordle-nyt-allowed-guesses.txt", words);
     readWords("wordle-nyt-answers-alphabetical.txt", words);
     vector<uint32_t> cooked = cookVector(words);
+    sort(cooked.begin(), cooked.end());
     vector<vector<int>> adj = adjList(cooked);
     tp t1 = chrono::high_resolution_clock::now();
     vector<quint> q = getQuints(cooked, adj);
