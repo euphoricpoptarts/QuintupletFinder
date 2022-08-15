@@ -112,7 +112,7 @@ vector<quint> getQuints(const vector<uint32_t>& cooked, const vector<vector<int>
     return result;
 }
 
-void printWord(vector<vector<string>> wM, int x){
+void printWord(const vector<vector<string>>& wM, int x){
     for(auto& w : wM[x]){
         cout << w << " ";
     }
