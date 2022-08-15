@@ -43,6 +43,22 @@ vector<uint32_t> cookVector(const vector<string>& words){
     return cooked;
 }
 
+vector<vector<string>> wordMap(const vector<string>& words, const vector<uint32_t>& cooked){
+    unordered_map<uint32_t, int> m;
+    for(int i = 0; i < cooked.size(); i++){
+        m[cooked[i]] = i;
+    }
+    vector<vector<string>> wM(cooked.size(), vector<string>());
+    for(auto& word : words){
+        uint32_t x = cook(word);
+        if(std::popcount(x) == 5){
+            int idx = m[x];
+            wM[idx].push_back(word);
+        }
+    }
+    return wM;
+}
+
 vector<vector<int>> adjList(const vector<uint32_t>& cooked){
     int n = cooked.size();
     vector<vector<int>> adj(n, vector<int>());
@@ -96,19 +112,35 @@ vector<quint> getQuints(const vector<uint32_t>& cooked, const vector<vector<int>
     return result;
 }
 
+void printWord(vector<vector<string>> wM, int x){
+    for(auto& w : wM[x]){
+        cout << w << " ";
+    }
+    cout << endl;
+}
+
 int main(){
     using tp = typename chrono::high_resolution_clock::time_point;
+    tp t1 = chrono::high_resolution_clock::now();
     vector<string> words;
     readWords("wordle-nyt-allowed-guesses.txt", words);
     readWords("wordle-nyt-answers-alphabetical.txt", words);
     vector<uint32_t> cooked = cookVector(words);
     sort(cooked.begin(), cooked.end());
+    vector<vector<string>> wM = wordMap(words, cooked);
     vector<vector<int>> adj = adjList(cooked);
-    tp t1 = chrono::high_resolution_clock::now();
     vector<quint> q = getQuints(cooked, adj);
-    cout << q.size() << endl;
     tp t2 = chrono::high_resolution_clock::now();
     chrono::duration<double> d = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
-    cout << d.count() << endl;
+    cout << "Found quintuplets in " << d.count() << "s" << endl;
+    for(auto x : q){
+        cout << "Quintuplet" << endl;
+        printWord(wM, x.i);
+        printWord(wM, x.j);
+        printWord(wM, x.k);
+        printWord(wM, x.l);
+        printWord(wM, x.m);
+        cout << endl;
+    }
     return 0;
 }
