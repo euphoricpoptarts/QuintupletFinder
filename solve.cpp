@@ -8,6 +8,7 @@
 #include <chrono>
 #include <list>
 #include <algorithm>
+#include <numeric>
 
 using namespace std;
 
@@ -20,6 +21,7 @@ void readWords(const string fname, vector<string>& output){
     }
 }
 
+//convert words to bit-string
 uint32_t cook(const string& word){
     uint32_t x = 0;
     for(auto& c : word){
@@ -28,6 +30,7 @@ uint32_t cook(const string& word){
     return x;
 }
 
+//collect all unique bit-strings with exactly five bits set
 vector<uint32_t> cookVector(const vector<string>& words){
     vector<uint32_t> cooked;
     unordered_set<uint32_t> uniq;
@@ -43,6 +46,7 @@ vector<uint32_t> cookVector(const vector<string>& words){
     return cooked;
 }
 
+//map words to the idx of their bit-string in cooked
 vector<vector<string>> wordMap(const vector<string>& words, const vector<uint32_t>& cooked){
     unordered_map<uint32_t, int> m;
     for(int i = 0; i < cooked.size(); i++){
@@ -59,6 +63,29 @@ vector<vector<string>> wordMap(const vector<string>& words, const vector<uint32_
     return wM;
 }
 
+//sort in increasing order of degree
+vector<uint32_t> sortByAdj(const vector<uint32_t>& cooked){
+    int n = cooked.size();
+    vector<int> adjC(n, 0);
+#pragma omp parallel for schedule(dynamic)
+    for(int i = 0; i < n; i++){
+        for(int j = 0; j < n; j++){
+            if((cooked[i] & cooked[j]) == 0){
+                adjC[i]++;
+            }
+        }
+    }
+    vector<int> idx(n, 0);
+    iota(idx.begin(), idx.end(), 0);
+    sort(idx.begin(), idx.end(), [&adjC] (int a, int b) {return adjC[a] < adjC[b];});
+    vector<uint32_t> sorted;
+    for(auto& i : idx){
+        sorted.push_back(cooked[i]);
+    }
+    return sorted;
+}
+
+//create a sparse adjacency matrix from cooked
 vector<vector<int>> adjList(const vector<uint32_t>& cooked){
     int n = cooked.size();
     vector<vector<int>> adj(n, vector<int>());
@@ -84,6 +111,7 @@ vector<quint> add(vector<quint>& a, const vector<quint>& b){
     return a;
 }
 
+//find all quintuplets of indices in cooked whose entries contain 25 unique set bits
 vector<quint> getQuints(const vector<uint32_t>& cooked, const vector<vector<int>>& adj){
 #pragma omp declare reduction (merge:vector<quint>:omp_out=add(omp_out,omp_in))
     int n = cooked.size();
@@ -112,6 +140,7 @@ vector<quint> getQuints(const vector<uint32_t>& cooked, const vector<vector<int>
     return result;
 }
 
+//print the words in the corresponding vector to the idx
 void printWord(const vector<vector<string>>& wM, int x){
     for(auto& w : wM[x]){
         cout << w << " ";
@@ -126,7 +155,9 @@ int main(){
     readWords("wordle-nyt-allowed-guesses.txt", words);
     readWords("wordle-nyt-answers-alphabetical.txt", words);
     vector<uint32_t> cooked = cookVector(words);
-    sort(cooked.begin(), cooked.end());
+    //sorting cooked by increasing degree helps decrease
+    //the total entries in adjList
+    cooked = sortByAdj(cooked);
     vector<vector<string>> wM = wordMap(words, cooked);
     vector<vector<int>> adj = adjList(cooked);
     vector<quint> q = getQuints(cooked, adj);
