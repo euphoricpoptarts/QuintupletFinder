@@ -141,11 +141,12 @@ vector<quint> getQuints(const vector<uint32_t>& cooked, const vector<vector<int>
 }
 
 //print the words in the corresponding vector to the idx
-void printWord(const vector<vector<string>>& wM, int x){
+int printWord(const vector<vector<string>>& wM, int x){
     for(auto& w : wM[x]){
         cout << w << " ";
     }
     cout << endl;
+    return wM[x].size();
 }
 
 int main(){
@@ -154,6 +155,7 @@ int main(){
     vector<string> words;
     readWords("wordle-nyt-allowed-guesses.txt", words);
     readWords("wordle-nyt-answers-alphabetical.txt", words);
+    //readWords("fives.txt", words);
     vector<uint32_t> cooked = cookVector(words);
     //sorting cooked by increasing degree helps decrease
     //the total entries in adjList
@@ -164,14 +166,18 @@ int main(){
     tp t2 = chrono::high_resolution_clock::now();
     chrono::duration<double> d = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
     cout << "Found quintuplets in " << d.count() << "s" << endl;
+    int count = 0;
     for(auto x : q){
         cout << "Quintuplet" << endl;
-        printWord(wM, x.i);
-        printWord(wM, x.j);
-        printWord(wM, x.k);
-        printWord(wM, x.l);
-        printWord(wM, x.m);
+        int y = 1;
+        y *= printWord(wM, x.i);
+        y *= printWord(wM, x.j);
+        y *= printWord(wM, x.k);
+        y *= printWord(wM, x.l);
+        y *= printWord(wM, x.m);
         cout << endl;
+        count += y;
     }
+    cout << count << endl;
     return 0;
 }
