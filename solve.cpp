@@ -81,12 +81,12 @@ unordered_set<uint32_t> pairs(const vector<uint32_t>& cooked){
     return p;
 }
 
-int getQuints(const vector<uint32_t>& cooked, const vector<vector<int>>& adj){
+int getQuints(const vector<uint32_t>& cooked, const vector<vector<int>>& adj, const unordered_set<uint32_t>& p){
 #pragma omp declare reduction (merge:vector<quint>:omp_out=add(omp_out,omp_in))
     int n = cooked.size();
     vector<quint> result;
-    unordered_set<uint32_t> p = pairs(cooked);
     int count = 0;
+    char missing[3] = {'j','q','x'};
 #pragma omp parallel for schedule(dynamic, 1) reduction(+: count)
     for(int i = 0; i < n; i++){
         uint32_t x1 = cooked[i];
@@ -96,8 +96,8 @@ int getQuints(const vector<uint32_t>& cooked, const vector<vector<int>>& adj){
                 if((x2 & cooked[k]) != 0) continue;
                 uint32_t x3 = x2 | cooked[k];
                 x3 = (~x3) & 0b11111111111111111111111111;
-                for(int s = 0; s < 26; s++){
-                    uint32_t q = 1 << s;
+                for(int s = 0; s < 3; s++){
+                    uint32_t q = 1 << (missing[s] - 'a');
                     q = q ^ x3;
                     if(popcount(q) == 10 && p.find(q) != p.end()) count++;
                 }
@@ -126,8 +126,9 @@ int main(){
     sort(cooked.begin(), cooked.end());
     reverse(cooked.begin(), cooked.end());
     vector<vector<int>> adj = adjList(cooked);
+    unordered_set<uint32_t> p = pairs(cooked);
     tp t1 = chrono::high_resolution_clock::now();
-    int q = getQuints(cooked, adj);
+    int q = getQuints(cooked, adj, p);
     cout << q << endl;
     tp t2 = chrono::high_resolution_clock::now();
     chrono::duration<double> d = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
