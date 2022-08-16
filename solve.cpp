@@ -112,11 +112,11 @@ vector<quint> add(vector<quint>& a, const vector<quint>& b){
 }
 
 //find all quintuplets of indices in cooked whose entries contain 25 unique set bits
-vector<quint> getQuints(const vector<uint32_t>& cooked, const vector<vector<int>>& adj){
+int getQuints(const vector<uint32_t>& cooked, const vector<vector<int>>& adj){
 #pragma omp declare reduction (merge:vector<quint>:omp_out=add(omp_out,omp_in))
     int n = cooked.size();
-    vector<quint> result;
-#pragma omp parallel for schedule(dynamic, 1) reduction(merge: result)
+    int result = 0;
+#pragma omp parallel for schedule(dynamic, 1) reduction(+: result)
     for(int i = 0; i < n; i++){
         uint32_t x1 = cooked[i];
         for(auto j : adj[i]){
@@ -129,8 +129,7 @@ vector<quint> getQuints(const vector<uint32_t>& cooked, const vector<vector<int>
                     uint32_t x4 = x3 | cooked[l];
                     for(auto m : adj[l]){
                         if((x4 & cooked[m]) == 0){
-                            quint y{i, j, k, l, m};
-                            result.push_back(y);
+                            result++;
                         }
                     }
                 }
@@ -151,7 +150,6 @@ int printWord(const vector<vector<string>>& wM, int x){
 
 int main(){
     using tp = typename chrono::high_resolution_clock::time_point;
-    tp t1 = chrono::high_resolution_clock::now();
     vector<string> words;
     readWords("wordle-nyt-allowed-guesses.txt", words);
     readWords("wordle-nyt-answers-alphabetical.txt", words);
@@ -162,22 +160,11 @@ int main(){
     cooked = sortByAdj(cooked);
     vector<vector<string>> wM = wordMap(words, cooked);
     vector<vector<int>> adj = adjList(cooked);
-    vector<quint> q = getQuints(cooked, adj);
+    tp t1 = chrono::high_resolution_clock::now();
+    int count = getQuints(cooked, adj);
     tp t2 = chrono::high_resolution_clock::now();
     chrono::duration<double> d = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
     cout << "Found quintuplets in " << d.count() << "s" << endl;
-    int count = 0;
-    for(auto x : q){
-        cout << "Quintuplet" << endl;
-        int y = 1;
-        y *= printWord(wM, x.i);
-        y *= printWord(wM, x.j);
-        y *= printWord(wM, x.k);
-        y *= printWord(wM, x.l);
-        y *= printWord(wM, x.m);
-        cout << endl;
-        count += y;
-    }
     cout << count << endl;
     return 0;
 }
