@@ -101,16 +101,6 @@ int getQuints(const vector<uint32_t>& cooked, const vector<vector<int>>& adj, co
                     q = q ^ x3;
                     if(popcount(q) == 10 && p.find(q) != p.end()) count++;
                 }
-                //for(auto l : adj[k]){
-                //    if((x3 & cooked[l]) != 0) continue;
-                //    uint32_t x4 = x3 | cooked[l];
-                //    for(auto m : adj[l]){
-                //        if((x4 & cooked[m]) == 0){
-                //            quint y{i, j, k, l, m};
-                //            result.push_back(y);
-                //        }
-                //    }
-                //}
             }
         }
     }
