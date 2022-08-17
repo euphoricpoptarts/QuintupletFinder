@@ -88,16 +88,17 @@ vector<uint32_t> sortByAdj(const vector<uint32_t>& cooked){
 //create a sparse adjacency matrix from cooked
 vector<vector<int>> adjList(const vector<uint32_t>& cooked){
     int n = cooked.size();
-    vector<vector<int>> adj(n, vector<int>());
+    vector<vector<int>> skip(n, vector<int>(n + 1, 0));
 #pragma omp parallel for schedule(dynamic)
-    for(int i = 0; i < n; i++){
-        for(int j = i + 1; j < n; j++){
-            if((cooked[i] & cooked[j]) == 0){
-                adj[i].push_back(j);
-            }
+    for (int i = 0; i < n; ++i) {
+        skip[i][n] = n;
+        uint32_t A = cooked[i];
+        for (int j = n - 1; j >= i; --j) {
+            uint32_t B = cooked[j];
+            skip[i][j] = ((A & B) == 0) ? j : skip[i][j + 1];
         }
     }
-    return adj;
+    return skip;
 }
 
 struct quint {
@@ -119,15 +120,15 @@ vector<quint> getQuints(const vector<uint32_t>& cooked, const vector<vector<int>
 #pragma omp parallel for schedule(dynamic, 1) reduction(merge: result)
     for(int i = 0; i < n; i++){
         uint32_t x1 = cooked[i];
-        for(auto j : adj[i]){
+        for(int j = adj[i][i]; j < n; j++, j = adj[i][j]){
             uint32_t x2 = x1 | cooked[j];
-            for(auto k : adj[j]){
+            for(int k = adj[j][j]; k < n; k++, k = adj[i][k], k = adj[j][k]){
                 if((x2 & cooked[k]) != 0) continue;
                 uint32_t x3 = x2 | cooked[k];
-                for(auto l : adj[k]){
+                for(int l = adj[k][k]; l < n; l++, l = adj[i][l], l = adj[j][l], l = adj[k][l]){
                     if((x3 & cooked[l]) != 0) continue;
                     uint32_t x4 = x3 | cooked[l];
-                    for(auto m : adj[l]){
+                    for(int m = adj[l][l]; m < n;  m++, m = adj[i][m], m = adj[j][m], m = adj[k][m], m = adj[l][m]){
                         if((x4 & cooked[m]) == 0){
                             quint y{i, j, k, l, m};
                             result.push_back(y);
@@ -151,7 +152,6 @@ int printWord(const vector<vector<string>>& wM, int x){
 
 int main(){
     using tp = typename chrono::high_resolution_clock::time_point;
-    tp t1 = chrono::high_resolution_clock::now();
     vector<string> words;
     readWords("wordle-nyt-allowed-guesses.txt", words);
     readWords("wordle-nyt-answers-alphabetical.txt", words);
@@ -162,6 +162,7 @@ int main(){
     cooked = sortByAdj(cooked);
     vector<vector<string>> wM = wordMap(words, cooked);
     vector<vector<int>> adj = adjList(cooked);
+    tp t1 = chrono::high_resolution_clock::now();
     vector<quint> q = getQuints(cooked, adj);
     tp t2 = chrono::high_resolution_clock::now();
     chrono::duration<double> d = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
