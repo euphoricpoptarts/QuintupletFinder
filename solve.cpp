@@ -156,10 +156,11 @@ int main(){
     readWords("wordle-nyt-allowed-guesses.txt", words);
     readWords("wordle-nyt-answers-alphabetical.txt", words);
     //readWords("fives.txt", words);
+    sort(words.begin(), words.end());
     vector<uint32_t> cooked = cookVector(words);
     //sorting cooked by increasing degree helps decrease
     //the total entries in adjList
-    cooked = sortByAdj(cooked);
+    //cooked = sortByAdj(cooked);
     vector<vector<string>> wM = wordMap(words, cooked);
     vector<vector<int>> adj = adjList(cooked);
     tp t1 = chrono::high_resolution_clock::now();
