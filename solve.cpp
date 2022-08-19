@@ -119,15 +119,20 @@ vector<quint> getQuints(const vector<uint32_t>& cooked, const vector<vector<int>
 #pragma omp parallel for schedule(dynamic, 1) reduction(merge: result)
     for(int i = 0; i < n; i++){
         uint32_t x1 = cooked[i];
-        for(auto j : adj[i]){
+        int stop = adj[i].size();
+        for(int jx = 0; jx < stop; jx++){
+            int j = adj[i][jx];
             uint32_t x2 = x1 | cooked[j];
-            for(auto k : adj[j]){
+            for(int kx = jx + 1; kx < stop; kx++){
+                int k = adj[i][kx];
                 if((x2 & cooked[k]) != 0) continue;
                 uint32_t x3 = x2 | cooked[k];
-                for(auto l : adj[k]){
+                for(int lx = kx + 1; lx < stop; lx++){
+                    int l = adj[i][lx];
                     if((x3 & cooked[l]) != 0) continue;
                     uint32_t x4 = x3 | cooked[l];
-                    for(auto m : adj[l]){
+                    for(int mx = lx + 1; mx < stop; mx++){
+                        int m = adj[i][mx];
                         if((x4 & cooked[m]) == 0){
                             quint y{i, j, k, l, m};
                             result.push_back(y);
@@ -151,7 +156,6 @@ int printWord(const vector<vector<string>>& wM, int x){
 
 int main(){
     using tp = typename chrono::high_resolution_clock::time_point;
-    tp t1 = chrono::high_resolution_clock::now();
     vector<string> words;
     readWords("wordle-nyt-allowed-guesses.txt", words);
     readWords("wordle-nyt-answers-alphabetical.txt", words);
@@ -162,6 +166,7 @@ int main(){
     cooked = sortByAdj(cooked);
     vector<vector<string>> wM = wordMap(words, cooked);
     vector<vector<int>> adj = adjList(cooked);
+    tp t1 = chrono::high_resolution_clock::now();
     vector<quint> q = getQuints(cooked, adj);
     tp t2 = chrono::high_resolution_clock::now();
     chrono::duration<double> d = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
