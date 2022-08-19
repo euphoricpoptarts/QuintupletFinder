@@ -25,7 +25,8 @@ void readWords(const string fname, vector<string>& output){
 uint32_t cook(const string& word){
     uint32_t x = 0;
     for(auto& c : word){
-        x |= (1 << (c - 'a'));
+        x |= 1 << 26 >> c;
+        //x |= (1 << (c - 'a'));
     }
     return x;
 }
@@ -117,18 +118,22 @@ vector<quint> getQuints(const vector<uint32_t>& cooked, const vector<vector<int>
 #pragma omp declare reduction (merge:vector<quint>:omp_out=add(omp_out,omp_in))
     int n = cooked.size();
     vector<quint> result;
+    vector<int> first(n, 0);
+    for(int i = 0; i < n; i++){
+        first[i] = adj[i][i];
+    }
 #pragma omp parallel for schedule(dynamic, 1) reduction(merge: result)
     for(int i = 0; i < n; i++){
         uint32_t x1 = cooked[i];
-        for(int j = adj[i][i]; j < n; j++, j = adj[i][j]){
+        for(int j = first[i]; j < n; j++, j = adj[i][j]){
             uint32_t x2 = x1 | cooked[j];
-            for(int k = adj[j][j]; k < n; k++, k = adj[i][k], k = adj[j][k]){
+            for(int k = first[j]; k < n; k++, k = adj[i][k], k = adj[j][k]){
                 if((x2 & cooked[k]) != 0) continue;
                 uint32_t x3 = x2 | cooked[k];
-                for(int l = adj[k][k]; l < n; l++, l = adj[i][l], l = adj[j][l], l = adj[k][l]){
+                for(int l = first[k]; l < n; l++, l = adj[i][l], l = adj[j][l], l = adj[k][l]){
                     if((x3 & cooked[l]) != 0) continue;
                     uint32_t x4 = x3 | cooked[l];
-                    for(int m = adj[l][l]; m < n;  m++, m = adj[i][m], m = adj[j][m], m = adj[k][m], m = adj[l][m]){
+                    for(int m = first[l]; m < n;  m++, m = adj[i][m], m = adj[j][m], m = adj[k][m], m = adj[l][m]){
                         if((x4 & cooked[m]) == 0){
                             quint y{i, j, k, l, m};
                             result.push_back(y);
@@ -156,10 +161,11 @@ int main(){
     readWords("wordle-nyt-allowed-guesses.txt", words);
     readWords("wordle-nyt-answers-alphabetical.txt", words);
     //readWords("fives.txt", words);
-    sort(words.begin(), words.end());
+    //sort(words.begin(), words.end());
     vector<uint32_t> cooked = cookVector(words);
     //sorting cooked by increasing degree helps decrease
     //the total entries in adjList
+    sort(cooked.begin(), cooked.end());
     //cooked = sortByAdj(cooked);
     vector<vector<string>> wM = wordMap(words, cooked);
     vector<vector<int>> adj = adjList(cooked);
