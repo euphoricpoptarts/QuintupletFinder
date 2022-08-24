@@ -21,12 +21,41 @@ void readWords(const string fname, vector<string>& output){
     }
 }
 
+//more frequent letters should have more significance
+void initM(char* m){
+    m['a'] = 24;
+    m['b'] = 9;
+    m['c'] = 16;
+    m['d'] = 14;
+    m['e'] = 25;
+    m['f'] = 8;
+    m['g'] = 10;
+    m['h'] = 11;
+    m['i'] = 22;
+    m['j'] = 1;
+    m['k'] = 5;
+    m['l'] = 17;
+    m['m'] = 12;
+    m['n'] = 19;
+    m['o'] = 21;
+    m['p'] = 13;
+    m['q'] = 0;
+    m['r'] = 23;
+    m['s'] = 18;
+    m['t'] = 20;
+    m['u'] = 15;
+    m['v'] = 4;
+    m['w'] = 6;
+    m['x'] = 3;
+    m['y'] = 7;
+    m['z'] = 2;
+}
+
 //convert words to bit-string
-uint32_t cook(const string& word){
+uint32_t cook(const string& word, const char* m){
     uint32_t x = 0;
     for(auto& c : word){
-        x |= 1 << 26 >> c;
-        //x |= (1 << (c - 'a'));
+        x |= 1 << m[c];
     }
     return x;
 }
@@ -35,8 +64,10 @@ uint32_t cook(const string& word){
 vector<uint32_t> cookVector(const vector<string>& words){
     vector<uint32_t> cooked;
     unordered_set<uint32_t> uniq;
+    char m[256];
+    initM(m);
     for(auto& word : words){
-        uint32_t x = cook(word);
+        uint32_t x = cook(word, m);
         if(std::popcount(x) == 5){
             if(uniq.find(x) == uniq.end()){
                 cooked.push_back(x);
@@ -54,36 +85,16 @@ vector<vector<string>> wordMap(const vector<string>& words, const vector<uint32_
         m[cooked[i]] = i;
     }
     vector<vector<string>> wM(cooked.size(), vector<string>());
+    char cm[256];
+    initM(cm);
     for(auto& word : words){
-        uint32_t x = cook(word);
+        uint32_t x = cook(word, cm);
         if(std::popcount(x) == 5){
             int idx = m[x];
             wM[idx].push_back(word);
         }
     }
     return wM;
-}
-
-//sort in increasing order of degree
-vector<uint32_t> sortByAdj(const vector<uint32_t>& cooked){
-    int n = cooked.size();
-    vector<int> adjC(n, 0);
-#pragma omp parallel for schedule(dynamic)
-    for(int i = 0; i < n; i++){
-        for(int j = 0; j < n; j++){
-            if((cooked[i] & cooked[j]) == 0){
-                adjC[i]++;
-            }
-        }
-    }
-    vector<int> idx(n, 0);
-    iota(idx.begin(), idx.end(), 0);
-    sort(idx.begin(), idx.end(), [&adjC] (int a, int b) {return adjC[a] < adjC[b];});
-    vector<uint32_t> sorted;
-    for(auto& i : idx){
-        sorted.push_back(cooked[i]);
-    }
-    return sorted;
 }
 
 //create a sparse adjacency matrix from cooked
@@ -157,19 +168,16 @@ int printWord(const vector<vector<string>>& wM, int x){
 
 int main(){
     using tp = typename chrono::high_resolution_clock::time_point;
+    tp t1 = chrono::high_resolution_clock::now();
     vector<string> words;
     readWords("wordle-nyt-allowed-guesses.txt", words);
     readWords("wordle-nyt-answers-alphabetical.txt", words);
     //readWords("fives.txt", words);
-    //sort(words.begin(), words.end());
     vector<uint32_t> cooked = cookVector(words);
-    //sorting cooked by increasing degree helps decrease
-    //the total entries in adjList
+    //sort cooked by value to create larger gaps in skiptable
     sort(cooked.begin(), cooked.end());
-    //cooked = sortByAdj(cooked);
     vector<vector<string>> wM = wordMap(words, cooked);
     vector<vector<int>> adj = adjList(cooked);
-    tp t1 = chrono::high_resolution_clock::now();
     vector<quint> q = getQuints(cooked, adj);
     tp t2 = chrono::high_resolution_clock::now();
     chrono::duration<double> d = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
