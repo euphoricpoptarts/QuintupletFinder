@@ -32,14 +32,14 @@ void initM(char* m){
     m['g'] = 10;
     m['h'] = 11;
     m['i'] = 22;
-    m['j'] = 1;
+    m['j'] = 27;
     m['k'] = 5;
     m['l'] = 17;
     m['m'] = 12;
     m['n'] = 19;
     m['o'] = 21;
     m['p'] = 13;
-    m['q'] = 0;
+    m['q'] = 26;
     m['r'] = 23;
     m['s'] = 18;
     m['t'] = 20;
@@ -98,16 +98,17 @@ vector<vector<string>> wordMap(const vector<string>& words, const vector<uint32_
 }
 
 //create a sparse adjacency matrix from cooked
-vector<vector<int>> adjList(const vector<uint32_t>& cooked){
+uint16_t* adjList(const vector<uint32_t>& cooked){
     int n = cooked.size();
-    vector<vector<int>> skip(n, vector<int>(n + 1, 0));
-#pragma omp parallel for schedule(dynamic)
-    for (int i = 0; i < n; ++i) {
-        skip[i][n] = n;
+    int cols = n+1;
+    uint16_t* skip = new uint16_t[n*cols];
+#pragma omp parallel for
+    for (int i = 0; i < n; i++) {
+        skip[i*cols + n] = n;
         uint32_t A = cooked[i];
-        for (int j = n - 1; j >= i; --j) {
+        for (int j = n - 1; j >= i; j--) {
             uint32_t B = cooked[j];
-            skip[i][j] = ((A & B) == 0) ? j : skip[i][j + 1];
+            skip[i*cols + j] = ((A & B) == 0) ? static_cast<uint16_t>(j) : skip[i*cols + j + 1];
         }
     }
     return skip;
@@ -125,26 +126,30 @@ vector<quint> add(vector<quint>& a, const vector<quint>& b){
 }
 
 //find all quintuplets of indices in cooked whose entries contain 25 unique set bits
-vector<quint> getQuints(const vector<uint32_t>& cooked, const vector<vector<int>>& adj){
+vector<quint> getQuints(const vector<uint32_t>& cooked, const uint16_t* adj){
 #pragma omp declare reduction (merge:vector<quint>:omp_out=add(omp_out,omp_in))
     int n = cooked.size();
+    int cols = n+1;
     vector<quint> result;
     vector<int> first(n, 0);
+#pragma omp parallel for
     for(int i = 0; i < n; i++){
-        first[i] = adj[i][i];
+        first[i] = adj[i*cols+i];
     }
+    uint32_t jq = (1 << 26) | (1 << 27);
 #pragma omp parallel for schedule(dynamic, 1) reduction(merge: result)
     for(int i = 0; i < n; i++){
         uint32_t x1 = cooked[i];
-        for(int j = first[i]; j < n; j++, j = adj[i][j]){
+        if((x1 & jq) == 0) continue;
+        for(int j = first[i]; j < n; j++, j = adj[i*cols+j]){
             uint32_t x2 = x1 | cooked[j];
-            for(int k = first[j]; k < n; k++, k = adj[i][k], k = adj[j][k]){
+            for(int k = first[j]; k < n; k++, k = adj[i*cols+k], k = adj[j*cols+k]){
                 if((x2 & cooked[k]) != 0) continue;
                 uint32_t x3 = x2 | cooked[k];
-                for(int l = first[k]; l < n; l++, l = adj[i][l], l = adj[j][l], l = adj[k][l]){
+                for(int l = first[k]; l < n; l++, l = adj[i*cols+l], l = adj[j*cols+l], l = adj[k*cols+l]){
                     if((x3 & cooked[l]) != 0) continue;
                     uint32_t x4 = x3 | cooked[l];
-                    for(int m = first[l]; m < n;  m++, m = adj[i][m], m = adj[j][m], m = adj[k][m], m = adj[l][m]){
+                    for(int m = first[l]; m < n;  m++, m = adj[i*cols+m], m = adj[j*cols+m], m = adj[k*cols+m], m = adj[l*cols+m]){
                         if((x4 & cooked[m]) == 0){
                             quint y{i, j, k, l, m};
                             result.push_back(y);
@@ -166,6 +171,13 @@ int printWord(const vector<vector<string>>& wM, int x){
     return wM[x].size();
 }
 
+struct sortf {
+    bool operator()(const uint32_t& x, const uint32_t& y) const {
+        uint32_t jq = (1 << 26) | (1 << 27);
+        return (x ^ jq) < (y ^ jq);
+    }
+};
+
 int main(){
     using tp = typename chrono::high_resolution_clock::time_point;
     tp t1 = chrono::high_resolution_clock::now();
@@ -175,13 +187,12 @@ int main(){
     //readWords("fives.txt", words);
     vector<uint32_t> cooked = cookVector(words);
     //sort cooked by value to create larger gaps in skiptable
-    sort(cooked.begin(), cooked.end());
+    //move j and q containing words to front of sorted array
+    sort(cooked.begin(), cooked.end(), sortf());
     vector<vector<string>> wM = wordMap(words, cooked);
-    vector<vector<int>> adj = adjList(cooked);
+    uint16_t* adj = adjList(cooked);
     vector<quint> q = getQuints(cooked, adj);
-    tp t2 = chrono::high_resolution_clock::now();
-    chrono::duration<double> d = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
-    cout << "Found quintuplets in " << d.count() << "s" << endl;
+    delete[] adj;
     int count = 0;
     for(auto x : q){
         cout << "Quintuplet" << endl;
@@ -195,5 +206,8 @@ int main(){
         count += y;
     }
     cout << count << endl;
+    tp t2 = chrono::high_resolution_clock::now();
+    chrono::duration<double> d = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
+    cout << "Found quintuplets in " << d.count() << "s" << endl;
     return 0;
 }
